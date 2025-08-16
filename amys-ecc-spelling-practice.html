@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Amy's ECC Spelling Practice</title>
+  <meta name="description" content="Practice and test yourself on commonly-misspelled English words with dictation and instant feedback." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Ctext y='1em' font-size='96'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Small helpers for kbd look */
+    kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: .85em; border: 1px solid #cbd5e1; border-bottom-width: 2px; padding: 0 .35rem; border-radius: .375rem; background: #f1f5f9; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-800">
+  <main class="max-w-4xl mx-auto p-6">
+    <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Amy's ECC Spelling Practice</h1>
+        <p class="text-sm text-slate-500">Practice and test yourself on commonly misspelled/irregular English words. Dictation-ready with text-to-speech.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <select id="voiceSelect" class="px-3 py-2 rounded-xl border bg-white shadow-sm">
+          <option value="en-GB">Voice: English (UK)</option>
+          <option value="en-US">Voice: English (US)</option>
+        </select>
+        <button id="practiceBtn" class="px-3 py-2 rounded-xl shadow-sm border bg-indigo-600 text-white">Practice</button>
+        <button id="testBtn" class="px-3 py-2 rounded-xl shadow-sm border bg-white">Test (10)</button>
+      </div>
+    </header>
+
+    <section class="bg-white rounded-2xl shadow p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4 text-sm">
+        <div class="flex items-center gap-3">
+          <span class="px-2 py-1 rounded-lg bg-slate-100">Words: <span id="wordCount">0</span></span>
+          <span id="positionBadge" class="px-2 py-1 rounded-lg bg-slate-100">Word 0 / 0</span>
+          <span id="scoreBadge" class="px-2 py-1 rounded-lg bg-slate-100 hidden">Score: 0</span>
+          <span class="px-2 py-1 rounded-lg bg-slate-100">Correct (recent): <span id="correctRecent">0</span></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="flex items-center gap-2"><input type="checkbox" id="caseSensitive"> Case sensitive</label>
+          <label class="flex items-center gap-2"><input type="checkbox" id="revealOnError" checked> Reveal on error</label>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="rounded-2xl border p-4 bg-slate-50">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold">Dictation</h2>
+            <button id="speakBtn" class="px-3 py-2 rounded-xl bg-indigo-600 text-white shadow disabled:opacity-50">Speak Word</button>
+          </div>
+          <p class="text-sm text-slate-500">
+            Press <kbd>Space</kbd> to hear the word. Use <kbd>Enter</kbd> to submit,
+            <kbd>Ctrl</kbd>+<kbd>Enter</kbd> for next.
+          </p>
+          <p class="mt-2 text-xs text-slate-500">Tip: Hide your screen and treat it like a real listening test.</p>
+        </div>
+
+        <div class="rounded-2xl border p-4">
+          <h2 class="font-semibold mb-2">Your Answer</h2>
+          <form id="answerForm" class="flex flex-col gap-3">
+            <input id="answerInput" autocomplete="off" placeholder="Type the spelling here…"
+              class="px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-200">
+            <div class="flex flex-wrap gap-2">
+              <button class="px-4 py-2 rounded-xl bg-indigo-600 text-white shadow" type="submit">Submit</button>
+              <button class="px-4 py-2 rounded-xl border shadow bg-white" type="button" id="nextBtn">Next</button>
+              <button class="px-4 py-2 rounded-xl border shadow bg-white" type="button" id="prevBtn">Prev</button>
+              <button class="px-4 py-2 rounded-xl border shadow bg-white" type="button" id="speakAgainBtn">Speak Again</button>
+              <button class="px-4 py-2 rounded-xl border shadow bg-white" type="button" id="revealBtn">Reveal</button>
+            </div>
+            <div id="feedback" class="min-h-[44px] flex items-center text-sm"></div>
+          </form>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <button id="shuffleBtn" class="px-3 py-2 rounded-xl border bg-white shadow">Shuffle</button>
+          <button id="resetPosBtn" class="px-3 py-2 rounded-xl border bg-white shadow">Reset Position</button>
+          <button id="clearProgressBtn" class="px-3 py-2 rounded-xl border bg-white shadow">Clear Progress</button>
+          <button id="exportBtn" class="px-3 py-2 rounded-xl border bg-white shadow">Export Words</button>
+        </div>
+        <div class="text-xs text-slate-500">Saved automatically to your browser.</div>
+      </div>
+    </section>
+
+    <section class="grid lg:grid-cols-2 gap-6 mt-6">
+      <div class="bg-white rounded-2xl shadow p-5">
+        <h3 class="font-semibold mb-3">Current Word List</h3>
+        <div id="wordList" class="text-sm grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-1"></div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow p-5">
+        <h3 class="font-semibold mb-2">Use Your Own Words</h3>
+        <p class="text-sm text-slate-500 mb-2">Paste comma- or newline-separated words to replace the list. Refresh to return to defaults.</p>
+        <textarea rows="6" id="customRaw" placeholder="e.g. colour, programme, queue
+accommodation
+handkerchief" class="w-full rounded-xl border p-3 mb-2"></textarea>
+        <div class="flex flex-wrap gap-2">
+          <button id="importBtn" class="px-3 py-2 rounded-xl bg-emerald-600 text-white shadow">Import Words</button>
+          <button id="restoreBtn" class="px-3 py-2 rounded-xl border bg-white shadow">Restore Default 50</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="testSummary" class="mt-6 bg-white rounded-2xl shadow p-5 hidden">
+      <h3 class="font-semibold mb-2">Test Summary</h3>
+      <p class="text-sm mb-3">You scored <span class="font-semibold" id="scoreVal">0</span> out of <span class="font-semibold" id="scoreTotal">10</span>.</p>
+      <div class="flex gap-2">
+        <button id="retakeBtn" class="px-3 py-2 rounded-xl bg-indigo-600 text-white shadow">Retake Test</button>
+        <button id="backToPracticeBtn" class="px-3 py-2 rounded-xl border bg-white shadow">Back to Practice</button>
+      </div>
+    </section>
+
+    <section class="mt-6 bg-white rounded-2xl shadow p-5">
+      <h3 class="font-semibold mb-3">Recent Attempts</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm" id="historyTable">
+          <thead>
+            <tr class="text-left text-slate-500">
+              <th class="py-2 pr-4">When</th>
+              <th class="py-2 pr-4">Word</th>
+              <th class="py-2 pr-4">Your Answer</th>
+              <th class="py-2 pr-4">Result</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="4" class="py-2 pr-4 text-slate-500">No attempts yet. Your last 200 answers will appear here.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-500 mt-8">
+      <p>Keyboard: Enter=Submit • Ctrl+Enter=Next • Space=Speak • UK voice default.</p>
+    </footer>
+  </main>
+
+  <script>
+    // ==============================
+    // Data & State
+    // ==============================
+    const DEFAULT_WORDS = [
+      "accommodate","achieve","acquaintance","address","argument",
+      "beginning","believe","calendar","certain","column",
+      "conscience","conscious","definite","definitely","disappear",
+      "embarrass","environment","experience","familiar","February",
+      "foreign","government","grammar","immediately","independent",
+      "knowledge","leisure","library","lightning","maintenance",
+      "minute","necessary","neighbor","occasion","occurred",
+      "parallel","perseverance","privilege","pronunciation","questionnaire",
+      "receive","recommend","restaurant","rhythm","separate",
+      "sincerely","surprise","tomorrow","weird","Wednesday"
+    ];
+    const STORAGE_KEY = "amys-ecc-spelling-state-v1";
+    const state = {
+      mode: "practice", // "practice" | "test"
+      voice: "en-GB",
+      words: [...DEFAULT_WORDS],
+      caseSensitive: false,
+      revealOnError: true,
+      idx: 0,
+      input: "",
+      feedback: "idle", // idle | correct | wrong | shown
+      history: [], // { word, correct, attempt, timestamp }
+      // test mode
+      testSet: [],
+      testIndex: 0,
+      testScore: 0,
+      testDone: false,
+    };
+
+    // Load saved
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        Object.assign(state, saved);
+      }
+    } catch {}
+
+    function persist() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+    }
+
+    // ==============================
+    // Helpers
+    // ==============================
+    function $(sel) { return document.querySelector(sel); }
+    function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
+    function byId(id) { return document.getElementById(id); }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function normalize(s) {
+      return state.caseSensitive ? s : (s || "").toLowerCase();
+    }
+
+    function currentWord() {
+      return state.mode === "practice"
+        ? (state.words[state.idx] || "")
+        : (state.testSet[state.testIndex] || "");
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      if (mode === "practice") {
+        byId("scoreBadge").classList.add("hidden");
+        byId("testSummary").classList.add("hidden");
+      } else {
+        startTest();
+      }
+      render();
+      persist();
+      focusInput();
+    }
+
+    function focusInput() {
+      byId("answerInput").focus();
+    }
+
+    function render() {
+      // badges
+      byId("wordCount").textContent = state.words.length;
+      if (state.mode === "practice") {
+        byId("positionBadge").textContent = "Word " + (state.idx + 1) + " / " + state.words.length;
+        byId("scoreBadge").classList.add("hidden");
+      } else {
+        byId("positionBadge").textContent = "Question " + (state.testIndex + 1) + " / " + (state.testSet.length || 10);
+        byId("scoreBadge").classList.remove("hidden");
+        byId("scoreBadge").textContent = "Score: " + state.testScore;
+      }
+
+      // toggle prev/next availability
+      byId("prevBtn").disabled = state.mode !== "practice";
+
+      // checkboxes
+      byId("caseSensitive").checked = state.caseSensitive;
+      byId("revealOnError").checked = state.revealOnError;
+
+      // word list
+      const list = byId("wordList");
+      list.innerHTML = "";
+      state.words.forEach((w, i) => {
+        const d = document.createElement("div");
+        d.textContent = (i + 1) + ". " + w;
+        if (state.mode === "practice" && i === state.idx) {
+          d.className = "truncate font-semibold text-indigo-700";
+        } else {
+          d.className = "truncate";
+        }
+        list.appendChild(d);
+      });
+
+      // recent correct count
+      const correctRecent = state.history.filter(h => h.correct).length;
+      byId("correctRecent").textContent = correctRecent;
+
+      // feedback styles
+      const input = byId("answerInput");
+      input.classList.remove("ring-green-200","border-green-500","ring-rose-200","border-rose-500");
+      const fb = byId("feedback");
+      fb.textContent = "";
+      fb.className = "min-h-[44px] flex items-center text-sm";
+      if (state.feedback === "correct") {
+        input.classList.add("border-green-500","ring-green-200");
+        fb.textContent = "Correct! 🎉";
+        fb.classList.add("text-green-700");
+      } else if (state.feedback === "wrong") {
+        input.classList.add("border-rose-500","ring-rose-200");
+        fb.textContent = "Not quite—try again or reveal.";
+        fb.classList.add("text-rose-700");
+      } else if (state.feedback === "shown") {
+        fb.innerHTML = 'Answer: <span class="font-semibold">' + currentWord() + "</span>";
+        fb.classList.add("text-slate-700");
+      }
+
+      // test summary
+      if (state.mode === "test" && state.testDone) {
+        byId("testSummary").classList.remove("hidden");
+        byId("scoreVal").textContent = state.testScore;
+        byId("scoreTotal").textContent = state.testSet.length;
+      } else {
+        byId("testSummary").classList.add("hidden");
+      }
+    }
+
+    // ==============================
+    // Speech
+    // ==============================
+    function speak(text, voicePref) {
+      if (!("speechSynthesis" in window) || !text) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => (v.lang || "").startsWith(voicePref));
+      if (preferred) utter.voice = preferred;
+      utter.rate = 0.95;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+    function ensureVoicesReady(cb) {
+      const id = setInterval(() => {
+        if (window.speechSynthesis.getVoices().length > 0) {
+          clearInterval(id);
+          cb();
+        }
+      }, 200);
+    }
+
+    // ==============================
+    // Actions
+    // ==============================
+    function submit() {
+      const answer = normalize(byId("answerInput").value.trim());
+      const target = normalize(currentWord());
+      const correct = answer === target;
+      state.feedback = correct ? "correct" : "wrong";
+      state.history.unshift({ word: currentWord(), correct, attempt: byId("answerInput").value, timestamp: Date.now() });
+      state.history = state.history.slice(0, 200);
+
+      if (state.mode === "practice") {
+        if (correct) {
+          setTimeout(nextWord, 300);
+        } else if (state.revealOnError) {
+          setTimeout(() => { state.feedback = "shown"; render(); persist(); }, 200);
+        }
+      } else {
+        // test mode
+        if (correct) state.testScore += 1;
+      }
+      render();
+      persist();
+    }
+
+    function nextWord() {
+      if (state.mode === "practice") {
+        state.idx = (state.idx + 1) % state.words.length;
+        byId("answerInput").value = "";
+        state.feedback = "idle";
+      } else {
+        const last = state.testIndex >= state.testSet.length - 1;
+        if (last) {
+          state.testDone = true;
+        } else {
+          state.testIndex += 1;
+          byId("answerInput").value = "";
+          state.feedback = "idle";
+        }
+      }
+      render();
+      persist();
+      focusInput();
+    }
+
+    function prevWord() {
+      if (state.mode !== "practice") return;
+      state.idx = (state.idx - 1 + state.words.length) % state.words.length;
+      byId("answerInput").value = "";
+      state.feedback = "idle";
+      render();
+      persist();
+      focusInput();
+    }
+
+    function startTest() {
+      state.mode = "test";
+      state.testSet = shuffle(state.words).slice(0, 10);
+      state.testIndex = 0;
+      state.testScore = 0;
+      state.testDone = false;
+      byId("answerInput").value = "";
+      state.feedback = "idle";
+      render();
+      persist();
+      focusInput();
+    }
+
+    function resetPosition() {
+      state.idx = 0;
+      byId("answerInput").value = "";
+      state.feedback = "idle";
+      render();
+      persist();
+    }
+
+    function clearProgress() {
+      state.history = [];
+      state.testScore = 0;
+      state.testDone = false;
+      render();
+      persist();
+    }
+
+    function exportWords() {
+      const blob = new Blob([state.words.join("\\n")], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "spelling-words.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importCustom() {
+      const raw = byId("customRaw").value || "";
+      const parts = raw.split(/[,\\n\\r]+/).map(w => w.trim()).filter(Boolean);
+      if (parts.length > 0) {
+        state.words = parts;
+        state.idx = 0;
+        byId("answerInput").value = "";
+        state.feedback = "idle";
+        setMode("practice");
+      }
+      render();
+      persist();
+    }
+
+    function restoreDefaults() {
+      state.words = DEFAULT_WORDS.slice();
+      state.idx = 0;
+      byId("answerInput").value = "";
+      state.feedback = "idle";
+      setMode("practice");
+      render();
+      persist();
+    }
+
+    // ==============================
+    // Events
+    // ==============================
+    byId("voiceSelect").addEventListener("change", (e) => {
+      state.voice = e.target.value;
+      persist();
+    });
+    byId("practiceBtn").addEventListener("click", () => setMode("practice"));
+    byId("testBtn").addEventListener("click", () => setMode("test"));
+    byId("speakBtn").addEventListener("click", () => ensureVoicesReady(() => speak(currentWord(), state.voice)));
+    byId("speakAgainBtn").addEventListener("click", () => ensureVoicesReady(() => speak(currentWord(), state.voice)));
+    byId("answerForm").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+    byId("nextBtn").addEventListener("click", nextWord);
+    byId("prevBtn").addEventListener("click", prevWord);
+    byId("revealBtn").addEventListener("click", () => { state.feedback = "shown"; render(); persist(); });
+    byId("shuffleBtn").addEventListener("click", () => { state.words = shuffle(state.words); state.idx = 0; byId("answerInput").value = ""; state.feedback = "idle"; render(); persist(); });
+    byId("resetPosBtn").addEventListener("click", resetPosition);
+    byId("clearProgressBtn").addEventListener("click", clearProgress);
+    byId("exportBtn").addEventListener("click", exportWords);
+    byId("importBtn").addEventListener("click", importCustom);
+    byId("restoreBtn").addEventListener("click", restoreDefaults);
+    byId("retakeBtn").addEventListener("click", startTest);
+    byId("backToPracticeBtn").addEventListener("click", () => setMode("practice"));
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", (e) => {
+      const active = document.activeElement;
+      const typing = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+      if (e.key === " " && !typing && !e.shiftKey) {
+        e.preventDefault();
+        ensureVoicesReady(() => speak(currentWord(), state.voice));
+      } else if (e.key === "Enter" && e.ctrlKey) {
+        e.preventDefault();
+        nextWord();
+      }
+    });
+
+    // ==============================
+    // History table
+    // ==============================
+    function renderHistory() {
+      const body = byId("historyBody");
+      body.innerHTML = "";
+      if (state.history.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 4;
+        td.className = "py-2 pr-4 text-slate-500";
+        td.textContent = "No attempts yet. Your last 200 answers will appear here.";
+        tr.appendChild(td);
+        body.appendChild(tr);
+        return;
+      }
+      state.history.forEach((h) => {
+        const tr = document.createElement("tr");
+        tr.className = "border-t";
+        const when = document.createElement("td"); when.className = "py-2 pr-4 text-slate-500"; when.textContent = new Date(h.timestamp).toLocaleString();
+        const word = document.createElement("td"); word.className = "py-2 pr-4 font-medium"; word.textContent = h.word;
+        const attempt = document.createElement("td"); attempt.className = "py-2 pr-4"; attempt.textContent = h.attempt;
+        const res = document.createElement("td"); res.className = "py-2 pr-4"; res.innerHTML = h.correct ? '<span class="text-green-700">Correct</span>' : '<span class="text-rose-700">Wrong</span>';
+        tr.appendChild(when); tr.appendChild(word); tr.appendChild(attempt); tr.appendChild(res);
+        body.appendChild(tr);
+      });
+    }
+
+    // Hook into render to update history too
+    const origRender = render;
+    render = function() {
+      origRender();
+      renderHistory();
+    }
+
+    // ==============================
+    // Init
+    // ==============================
+    // set active button styles
+    function updateModeButtons() {
+      if (state.mode === "practice") {
+        byId("practiceBtn").className = "px-3 py-2 rounded-xl shadow-sm border bg-indigo-600 text-white";
+        byId("testBtn").className = "px-3 py-2 rounded-xl shadow-sm border bg-white";
+      } else {
+        byId("practiceBtn").className = "px-3 py-2 rounded-xl shadow-sm border bg-white";
+        byId("testBtn").className = "px-3 py-2 rounded-xl shadow-sm border bg-indigo-600 text-white";
+      }
+    }
+    const origRender2 = render;
+    render = function() {
+      origRender2();
+      updateModeButtons();
+    }
+
+    // reflect saved toggles
+    byId("caseSensitive").addEventListener("change", (e) => { state.caseSensitive = e.target.checked; persist(); });
+    byId("revealOnError").addEventListener("change", (e) => { state.revealOnError = e.target.checked; persist(); });
+
+    // initial paint
+    render();
+    focusInput();
+  </script>
+</body>
+</html>
